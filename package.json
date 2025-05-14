@@ -1,0 +1,27 @@
+{
+  "name": "practice-backend",
+  "version": "1.0.0",
+  "description": "learning backend through this package",
+  "keywords": [
+    "node",
+    "javascript",
+    "backend"
+  ],
+  "license": "ISC",
+  "author": "Shiv Pratap Singh",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10",
+    "prettier": "^3.5.3"
+  },
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "mongoose": "^8.14.3"
+  }
+}
