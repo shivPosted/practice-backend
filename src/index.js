@@ -30,12 +30,13 @@ dbConnect()
   })
   .catch((err) => console.error(err));
 
-app.get(
-  "/",
-  asyncHandler(async (req, res) => {
-    if (4 % 2 === 0) {
-      res.send("All good");
-      return "All good";
-    } else throw new Error("Some problem occured");
-  }),
-);
+// trying somthing or seeing working of asyncHandler
+// app.get(
+//   "/",
+//   asyncHandler(async (req, res) => {
+//     if (4 % 2 === 0) {
+//       res.send("All good");
+//       return "All good";
+//     } else throw new Error("Some problem occured");
+//   }),
+// );
