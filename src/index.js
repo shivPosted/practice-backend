@@ -2,7 +2,6 @@ import "dotenv/config";
 import express from "express";
 
 import dbConnect from "./db/mongodb.js";
-import asyncHandler from "./utils/asyncHandler.js";
 const app = express();
 
 // NOTE:IFFE for connecting directly in index
