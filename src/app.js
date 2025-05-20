@@ -51,8 +51,12 @@ app.use(express.static("public"));
 app.use(cookieParser());
 
 //NOTE: importing router to use
-
 import userRouter from "./routes/user.route.js";
+
+//NOTE: using middleware router to tranfer the control to userRouter
+// What app.use("/api/v1/users", userRouter) does:
+// app.use() mounts middleware (including routers) at a specific path.
+// userRouter is a separate router object (usually from express.Router()) that contains multiple user- related routes, like registration, login, profile, etc.
 
 app.use("/api/v1/users", userRouter);
 
