@@ -2,7 +2,8 @@ import "dotenv/config";
 import express from "express";
 
 import dbConnect from "./db/mongodb.js";
-const app = express();
+
+import app from "./app.js";
 
 // NOTE:IFFE for connecting directly in index
 // ;(
@@ -28,14 +29,3 @@ dbConnect()
     app.listen(port, () => console.log(`App is listening on port: ${port}`));
   })
   .catch((err) => console.error(err));
-
-// trying somthing or seeing working of asyncHandler
-// app.get(
-//   "/",
-//   asyncHandler(async (req, res) => {
-//     if (4 % 2 === 0) {
-//       res.send("All good");
-//       return "All good";
-//     } else throw new Error("Some problem occured");
-//   }),
-// );

@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import asyncHandler from "./utils/asyncHandler";
 
 const app = express();
 
@@ -50,3 +49,11 @@ app.use(express.static("public"));
 // Useful for sessions, auth tokens, preferences, etc.
 
 app.use(cookieParser());
+
+//NOTE: importing router to use
+
+import userRouter from "./routes/user.route.js";
+
+app.use("/api/v1/users", userRouter);
+
+export default app;

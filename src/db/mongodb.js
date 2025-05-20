@@ -7,7 +7,7 @@ const app = express();
 async function dbConnect() {
   try {
     mongoose.connection.on("connected", () =>
-      console.log("connection successful"),
+      console.log("connection to databse successful"),
     );
     const dbInstance = await mongoose.connect(
       `${process.env.MONGODB_URI}/${MONGOODB_NAME}`,
