@@ -18,7 +18,6 @@ const uploadOnCloudinary = async function (localFilePath) {
     });
     //file uploaded to cloudinary
     if (!res.url) throw new Error("Can not upload file to cloudinary");
-    console.log(res);
     //remove the temporary saved  file 👇
     fs.unlinkSync(localFilePath);
     return res;
