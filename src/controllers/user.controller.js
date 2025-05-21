@@ -23,8 +23,9 @@ const registerUser = asyncHandler(async (req, res) => {
   // check for user creation
   // return res
 
-  const { fullName, email, userName, password } = req.body();
+  const { fullName, email, userName, password } = req.body(); //NOTE: we can not access files from req.body directly
 
+  //checking if any field is empty
   if (
     [fullName, email, userName, password].some(
       (item) => item.trim() === "" || item.trim() === null,
@@ -32,9 +33,9 @@ const registerUser = asyncHandler(async (req, res) => {
   )
     throw new ApiError("All fields are necessary", 400);
 
+  //NOTE: for checking if one of the mentioned fields already exist
   const userExists = await User.findOne({
-    //NOTE: for checking if one of the mentioned fileds exist
-    $or: [{ userName }, { email }],
+    $or: [{ userName }, { email }], //you can study about $or
   });
 
   if (userExists) throw new ApiError("User already exists", 409);
@@ -42,6 +43,7 @@ const registerUser = asyncHandler(async (req, res) => {
   //NOTE: getting files from req object as there is middleware of multer used multer.fields before executing the registerUser function to upload files to server temporarily
   //
   const avatarLocalPath = req.files?.avatar[0]?.path;
+  console.log(req.files);
 
   const coverImageLocalPath = req.files?.coverImage[0]?.path;
 
@@ -50,7 +52,7 @@ const registerUser = asyncHandler(async (req, res) => {
   //NOTE: uploading to cloudinary
 
   const avatar = await uploadOnCloudinary(avatarLocalPath);
-  const coverImage = await uploadOnCloudinary(coverImage);
+  const coverImage = await uploadOnCloudinary(coverImageLocalPath);
 
   if (!avatar) throw new ApiError("Avatar File is Required", 400);
 
@@ -65,7 +67,7 @@ const registerUser = asyncHandler(async (req, res) => {
     },
   ]);
 
-  const newCreatedUser = await User.findById(newUser._id).select(
+  const newCreatedUser = await User.findById(newUser?._id).select(
     "-password -refreshToken",
   ); //NOTE:  '-' denote not to include these fieles
 

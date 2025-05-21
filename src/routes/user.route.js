@@ -10,6 +10,7 @@ const userRouter = Router();
 // .post(registerUser): This defines what happens when a POST request is made to the /register path. Specifically, it tells Express to call the registerUser function when such a request is received.
 
 userRouter.route("/register").post(
+  //NOTE: we can also use middleware before calling registerUser for handling files before using upload(imported from multer)
   upload.fields([
     {
       name: "avatar",
@@ -21,6 +22,6 @@ userRouter.route("/register").post(
     },
   ]),
   registerUser,
-); //NOTE: we can also use middleware before calling the registerUser by using {} before referencing main controller
+);
 
 export default userRouter;
