@@ -23,7 +23,7 @@ const registerUser = asyncHandler(async (req, res) => {
   // check for user creation
   // return res
 
-  const { fullName, email, userName, password } = req.body(); //NOTE: we can not access files from req.body directly
+  const { fullName, email, userName, password } = req.body; //NOTE: we can not access files from req.body directly
 
   //checking if any field is empty
   if (
@@ -42,17 +42,19 @@ const registerUser = asyncHandler(async (req, res) => {
 
   //NOTE: getting files from req object as there is middleware of multer used multer.fields before executing the registerUser function to upload files to server temporarily
   //
-  const avatarLocalPath = req.files?.avatar[0]?.path;
-  console.log(req.files);
+  const avatarLocalPath = req.files?.avatar[0].path;
 
-  const coverImageLocalPath = req.files?.coverImage[0]?.path;
+  const coverImageLocalPath = req.files?.coverImage?.[0].path;
 
   if (!avatarLocalPath) throw new ApiError(400, "Avatar File is Required");
 
   //NOTE: uploading to cloudinary
 
   const avatar = await uploadOnCloudinary(avatarLocalPath);
-  const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+
+  let coverImage;
+  if (coverImageLocalPath)
+    coverImage = await uploadOnCloudinary(coverImageLocalPath);
 
   if (!avatar) throw new ApiError("Avatar File is Required", 400);
 
@@ -61,13 +63,13 @@ const registerUser = asyncHandler(async (req, res) => {
       fullName,
       userName: userName.toLowerCase(),
       avatar: avatar.url,
-      coverImage: coverImage.url,
+      coverImage: coverImage?.url || "",
       password,
       email,
     },
   ]);
 
-  const newCreatedUser = await User.findById(newUser?._id).select(
+  const newCreatedUser = await User.findById(newUser?.[0]?._id).select(
     "-password -refreshToken",
   ); //NOTE:  '-' denote not to include these fieles
 

@@ -51,11 +51,13 @@ const userSchema = new Schema(
 //NOTE: pre hook is used to run a function just before an event in this case the save event
 
 userSchema.pre("save", async function (next) {
-  if (!this.isModified(this.password))
+  if (!this.isModified("password"))
     //NOTE: check if the user has modified password or not
     return next();
 
+  console.log(this.password);
   this.password = await bcrypt.hash(this.password, 10);
+  console.log("applying password encryption");
   next();
 });
 
