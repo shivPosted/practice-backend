@@ -55,7 +55,6 @@ userSchema.pre("save", async function (next) {
     //NOTE: check if the user has modified password or not
     return next();
 
-  console.log(this.password);
   this.password = await bcrypt.hash(this.password, 10);
   console.log("applying password encryption");
   next();

@@ -81,4 +81,77 @@ const registerUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "User successfully registered", newCreatedUser));
 });
 
+const generateAccessAndRefreshTokens = async (userId) => {
+  try {
+    const user = await User.findById(userId); //finding user by the provided user id
+
+    const refreshToken = user.generateRefreshToken();
+    const accessToken = user.generateAccessToken();
+
+    user.refreshToken = refreshToken;
+
+    //NOTE: explicitly saving the document to database because it is not auto synced even if refrenced
+    user.save({
+      validateBeforeSave: false, //NOTE: for avoiding validation related error if saving partial fields
+    });
+    return { accessToken, refreshToken };
+  } catch (error) {
+    throw new ApiError("Could not generate access and refresh tokens", 500);
+  }
+};
+
+const loginUser = asyncHandler(async (req, res) => {
+  //TODO:
+  //take input from user
+  //check either email or userName is given
+  //check if user exist
+  //if exist:
+  //check password
+  //if correct password generate access and refresh token
+  //save refresh token to db
+  //send tokens to client browser
+
+  const { email, userName, password } = req.body;
+
+  if (!userName && !email)
+    throw new ApiError("Please provide email or username", 400);
+
+  const user = await User.findOne({
+    $or: [{ userName }, { email }],
+  }).select("-password -refreshToken");
+
+  if (!user) throw new ApiError("User does not exist", 404);
+
+  const passwordAuthenticated = await user.isPasswordCorrect(password); //NOTE: user. not User. because the method is available on document or field in mongodb not a mehtod of mongoose like findById, etc.
+
+  if (!passwordAuthenticated)
+    throw new ApiError("Invalid login credentials", 400);
+
+  const { refreshToken, accessToken } = await generateAccessAndRefreshTokens(
+    user._id,
+  );
+
+  const updatedUserAfterTokenGeneration = await User.findById(user._id).select(
+    "-password -refreshToken",
+  );
+
+  const cookieOptions = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  //NOTE: sending response and cookie data to the user
+  return res
+    .status(201)
+    .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("refreshToken", refreshToken, cookieOptions)
+    .json(
+      new ApiResponse(200, "Logged in Successfully", {
+        user: updatedUserAfterTokenGeneration,
+        accessToken,
+        refreshToken,
+      }),
+    );
+});
+
 export default registerUser;
