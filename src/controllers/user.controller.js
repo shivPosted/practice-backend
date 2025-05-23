@@ -1,4 +1,3 @@
-import { upload } from "../middlewares/multer.middleware.js";
 import { User } from "../models/user.models.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
@@ -11,6 +10,25 @@ import uploadOnCloudinary from "../utils/cloudinary.js";
 // res (short for "response"): used to send back a response to the client.
 // res.status(200): Sets the HTTP response status code to 200, which means "OK" (i.e., success).
 // .json({ message: "ok" }): Sends a JSON response to the client with the object { message: "ok" }.
+
+const generateAccessAndRefreshTokens = async (userId) => {
+  try {
+    const user = await User.findById(userId); //finding user by the provided user id
+
+    const refreshToken = user.generateRefreshToken();
+    const accessToken = user.generateAccessToken();
+
+    user.refreshToken = refreshToken;
+
+    //NOTE: explicitly saving the document to database because it is not auto synced even if refrenced
+    user.save({
+      validateBeforeSave: false, //NOTE: for avoiding validation related error if saving partial fields
+    });
+    return { accessToken, refreshToken };
+  } catch (error) {
+    throw new ApiError("Could not generate access and refresh tokens", 500);
+  }
+};
 
 const registerUser = asyncHandler(async (req, res) => {
   // get user details from frontend
@@ -81,25 +99,6 @@ const registerUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "User successfully registered", newCreatedUser));
 });
 
-const generateAccessAndRefreshTokens = async (userId) => {
-  try {
-    const user = await User.findById(userId); //finding user by the provided user id
-
-    const refreshToken = user.generateRefreshToken();
-    const accessToken = user.generateAccessToken();
-
-    user.refreshToken = refreshToken;
-
-    //NOTE: explicitly saving the document to database because it is not auto synced even if refrenced
-    user.save({
-      validateBeforeSave: false, //NOTE: for avoiding validation related error if saving partial fields
-    });
-    return { accessToken, refreshToken };
-  } catch (error) {
-    throw new ApiError("Could not generate access and refresh tokens", 500);
-  }
-};
-
 const loginUser = asyncHandler(async (req, res) => {
   //TODO:
   //take input from user
@@ -111,15 +110,16 @@ const loginUser = asyncHandler(async (req, res) => {
   //save refresh token to db
   //send tokens to client browser(in cookies)
 
-  const { email, userName, password } = req.body;
+  const { email = "", userName = "", password } = req.body;
 
   if (!userName && !email)
     throw new ApiError("Please provide email or username", 400);
 
   const user = await User.findOne({
     $or: [{ userName }, { email }],
-  }).select("-password -refreshToken");
+  }).select("-pasword -refreshToken");
 
+  console.log(user);
   if (!user) throw new ApiError("User does not exist", 404);
 
   const passwordAuthenticated = await user.isPasswordCorrect(password); //NOTE: user. not User. because the method is available on document or field in mongodb not a mehtod of mongoose like findById, etc.
@@ -170,7 +170,7 @@ const logoutUser = asyncHandler(async (req, res) => {
   };
   return res
     .status(200)
-    .clearCookie("refreshToken", cookieOptions) //clearing cookies in browser
+    .clearCookie("refreshToken", cookieOptions)
     .clearCookie("accessToken", cookieOptions)
     .json(new ApiResponse(200, "User Successfully Logged Out", {}));
 });
