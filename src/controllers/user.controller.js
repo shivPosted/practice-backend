@@ -115,9 +115,14 @@ const loginUser = asyncHandler(async (req, res) => {
   if (!userName && !email)
     throw new ApiError("Please provide email or username", 400);
 
+  // BUG: if you exclude password from the fields and try to apply isPasswordCorrect method on user  on that instance this.password of method is undefined so hashing will fail👇👇
+  // const user = await User.findOne({
+  //   $or: [{ userName }, { email }],
+  // }).select("-password -refreshToken");
+
   const user = await User.findOne({
     $or: [{ userName }, { email }],
-  }).select("-pasword -refreshToken");
+  }).select("-refreshToken");
 
   console.log(user);
   if (!user) throw new ApiError("User does not exist", 404);
