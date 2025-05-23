@@ -16,7 +16,7 @@ const verifyJWT = asyncHandler(async (req, _, next) => {
         404,
       );
 
-    const decodedToken = jwt.verify(token);
+    const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
     const user = await User.findById(decodedToken._id);
 
