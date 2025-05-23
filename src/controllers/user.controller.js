@@ -109,7 +109,7 @@ const loginUser = asyncHandler(async (req, res) => {
   //check password
   //if correct password generate access and refresh token
   //save refresh token to db
-  //send tokens to client browser
+  //send tokens to client browser(in cookies)
 
   const { email, userName, password } = req.body;
 
@@ -132,10 +132,11 @@ const loginUser = asyncHandler(async (req, res) => {
   );
 
   const updatedUserAfterTokenGeneration = await User.findById(user._id).select(
-    "-password -refreshToken",
+    "-password -refreshToken", //includes fields without password and refreshToken
   );
 
   const cookieOptions = {
+    //cookies options that are common
     httpOnly: true,
     secure: true,
   };
@@ -143,7 +144,7 @@ const loginUser = asyncHandler(async (req, res) => {
   //NOTE: sending response and cookie data to the user
   return res
     .status(201)
-    .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("accessToken", accessToken, cookieOptions) //used to set cookies in client's browser
     .cookie("refreshToken", refreshToken, cookieOptions)
     .json(
       new ApiResponse(200, "Logged in Successfully", {
@@ -154,4 +155,24 @@ const loginUser = asyncHandler(async (req, res) => {
     );
 });
 
-export default registerUser;
+const logoutUser = asyncHandler(async (req, res) => {
+  await User.findByIdAndUpdate(req.user._id, {
+    //NOTE: update query
+    $set: {
+      refreshToken: null,
+    },
+  });
+
+  const cookieOptions = {
+    //cookies options that are common
+    httpOnly: true,
+    secure: true,
+  };
+  return res
+    .status(200)
+    .clearCookie("refreshToken", cookieOptions) //clearing cookies in browser
+    .clearCookie("accessToken", cookieOptions)
+    .json(new ApiResponse(200, "User Successfully Logged Out", {}));
+});
+
+export { registerUser, loginUser, logoutUser };

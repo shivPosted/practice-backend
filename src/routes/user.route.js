@@ -1,6 +1,7 @@
 import { Router } from "express";
-import registerUser from "../controllers/user.controller.js";
+import { loginUser, registerUser } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
+import verifyJWT from "../middlewares/auth.middleware.js";
 
 const userRouter = Router();
 
@@ -23,5 +24,9 @@ userRouter.route("/register").post(
   ]),
   registerUser,
 );
+
+//NOTE: using verify jwt to get id out of token for using in loginUser req
+//use middleware before executing main function, next is used to tell the router to go to next function or middleware
+userRouter.route("/login").post(verifyJWT, loginUser);
 
 export default userRouter;
