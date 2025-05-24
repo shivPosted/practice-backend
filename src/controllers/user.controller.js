@@ -3,6 +3,8 @@ import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import uploadOnCloudinary from "../utils/cloudinary.js";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 //NOTE:
 // //(req, res): These are the request and response objects provided by Express.
@@ -18,7 +20,9 @@ const generateAccessAndRefreshTokens = async (userId) => {
     const refreshToken = user.generateRefreshToken();
     const accessToken = user.generateAccessToken();
 
-    user.refreshToken = refreshToken;
+    console.log("refreshToken", refreshToken);
+    user.refreshToken = bcrypt.hashSync(refreshToken, 10); //hashing refreshToken before saving it
+    console.log("after hashing", user.refreshToken);
 
     //NOTE: explicitly saving the document to database because it is not auto synced even if refrenced
     user.save({
@@ -71,6 +75,7 @@ const registerUser = asyncHandler(async (req, res) => {
   const avatar = await uploadOnCloudinary(avatarLocalPath);
 
   let coverImage;
+
   if (coverImageLocalPath)
     coverImage = await uploadOnCloudinary(coverImageLocalPath);
 
@@ -124,7 +129,6 @@ const loginUser = asyncHandler(async (req, res) => {
     $or: [{ userName }, { email }],
   }).select("-refreshToken");
 
-  console.log(user);
   if (!user) throw new ApiError("User does not exist", 404);
 
   const passwordAuthenticated = await user.isPasswordCorrect(password); //NOTE: user. not User. because the method is available on document or field in mongodb not a mehtod of mongoose like findById, etc.
@@ -180,4 +184,61 @@ const logoutUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "User Successfully Logged Out", {}));
 });
 
-export { registerUser, loginUser, logoutUser };
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  //NOTE: refreshing access token in case of expiration
+  const recievedRefreshToken =
+    req.cookies?.refreshToken || req.body.refreshToken;
+
+  if (!recievedRefreshToken)
+    throw new ApiError(
+      "Your web token seems to be expired please login again",
+      401,
+    );
+
+  console.log(recievedRefreshToken);
+
+  try {
+    const decodedToken = jwt.verify(
+      recievedRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET,
+    );
+
+    console.log(decodedToken);
+    if (!decodedToken) throw new ApiError("Unauthorized access", 404);
+
+    const user = await User.findById(decodedToken._id);
+
+    if (!user) throw new ApiError("Token expired or invalid user", 404);
+
+    const doesTokenMatch = bcrypt.compare(
+      recievedRefreshToken,
+      user.refreshToken,
+    );
+
+    if (!doesTokenMatch) throw new ApiError("Invalid Token request", 400);
+
+    const { refreshToken, accessToken } = await generateAccessAndRefreshTokens(
+      user._id,
+    ); //generating and saving to the database
+
+    const cookieOptions = {
+      httpOnly: true,
+      secure: true,
+    };
+
+    return res
+      .status(200)
+      .cookie("refreshToken", refreshToken, cookieOptions)
+      .cookie("accesToken", accessToken, cookieOptions)
+      .json(
+        new ApiResponse(201, "Token successfully refreshed", {
+          accessToken,
+          refreshToken,
+        }),
+      );
+  } catch (error) {
+    throw new ApiError(error.message || "Can not refresh token", 400);
+  }
+});
+
+export { registerUser, loginUser, logoutUser, refreshAccessToken };
