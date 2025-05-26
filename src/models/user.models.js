@@ -2,6 +2,18 @@ import mongoose, { Schema } from "mongoose"; // mongoose.Schema = Schema;
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
+const cloudImageSchema = new Schema(
+  {
+    url: {
+      type: String,
+    },
+    publicId: {
+      type: String,
+    },
+  },
+  { _id: false },
+);
+
 const userSchema = new Schema(
   {
     userName: {
@@ -34,12 +46,19 @@ const userSchema = new Schema(
       type: String,
       required: [true, "Password is required"], //NOTE: data validation
     },
+    // avatar: {
+    //   type: String,
+    //   required: true,
+    // },
+    // coverImage: {
+    //   type: String,
+    // },
     avatar: {
-      type: String,
+      type: cloudImageSchema,
       required: true,
     },
     coverImage: {
-      type: String,
+      type: cloudImageSchema,
     },
     refreshToken: {
       type: String,

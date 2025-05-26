@@ -2,7 +2,10 @@ import { User } from "../models/user.models.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import uploadOnCloudinary from "../utils/cloudinary.js";
+import {
+  deleteFromCloudinary,
+  uploadOnCloudinary,
+} from "../utils/cloudinary.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
@@ -20,12 +23,10 @@ const generateAccessAndRefreshTokens = async (userId) => {
     const refreshToken = user.generateRefreshToken();
     const accessToken = user.generateAccessToken();
 
-    console.log("refreshToken", refreshToken);
     user.refreshToken = bcrypt.hashSync(refreshToken, 10); //hashing refreshToken before saving it
-    console.log("after hashing", user.refreshToken);
 
     //NOTE: explicitly saving the document to database because it is not auto synced even if refrenced
-    user.save({
+    await user.save({
       validateBeforeSave: false, //NOTE: for avoiding validation related error if saving partial fields
     });
     return { accessToken, refreshToken };
@@ -85,8 +86,14 @@ const registerUser = asyncHandler(async (req, res) => {
     {
       fullName,
       userName: userName.toLowerCase(),
-      avatar: avatar.url,
-      coverImage: coverImage?.url || "",
+      avatar: {
+        url: avatar.secure_url,
+        publicId: avatar.public_id,
+      },
+      coverImage: {
+        url: coverImage?.secure_url || "",
+        publicId: coverImage?.public_id || null,
+      },
       password,
       email,
     },
@@ -99,9 +106,13 @@ const registerUser = asyncHandler(async (req, res) => {
   if (!newCreatedUser)
     throw new ApiError("Could not register the user, try again", 500);
 
-  return res
-    .status(201)
-    .json(new ApiResponse(200, "User successfully registered", newCreatedUser));
+  return res.status(201).json(
+    new ApiResponse(200, "User successfully registered", {
+      ...newCreatedUser,
+      avatar: avatar.secure_url,
+      coverImage: coverImage?.secure_url,
+    }),
+  );
 });
 
 const loginUser = asyncHandler(async (req, res) => {
@@ -157,7 +168,11 @@ const loginUser = asyncHandler(async (req, res) => {
     .cookie("refreshToken", refreshToken, cookieOptions)
     .json(
       new ApiResponse(200, "Logged in Successfully", {
-        user: updatedUserAfterTokenGeneration,
+        user: {
+          ...updatedUserAfterTokenGeneration,
+          avatar: updatedUserAfterTokenGeneration.avatar.url,
+          coverImage: updatedUserAfterTokenGeneration.coverImage?.url || "",
+        },
         accessToken,
         refreshToken,
       }),
@@ -195,15 +210,12 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       401,
     );
 
-  console.log(recievedRefreshToken);
-
   try {
     const decodedToken = jwt.verify(
       recievedRefreshToken,
       process.env.REFRESH_TOKEN_SECRET,
     );
 
-    console.log(decodedToken);
     if (!decodedToken) throw new ApiError("Unauthorized access", 404);
 
     const user = await User.findById(decodedToken._id);
@@ -241,4 +253,114 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   }
 });
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken };
+const changeCurrentPassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword, confirmPassword } = req.body;
+
+  if (confirmPassword !== newPassword)
+    throw new ApiError("Enter password correctly", 400);
+
+  const user = await User.findById(req.user._id);
+
+  if (!user)
+    throw new ApiError(
+      "You are not authorized to change password, user does not exist",
+      404,
+    );
+
+  const isPasswordCorrect = await user.isPasswordCorrect(currentPassword);
+
+  if (!isPasswordCorrect) throw new ApiError("Wrong password entered");
+
+  user.password = newPassword;
+
+  await user.save({
+    validateBeforeSave: false,
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Password Successfully Changed", {}));
+});
+
+const getCurrentUser = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError("Invalid request, no user found", 404);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "User found Successfully", req.user));
+});
+
+const updateAccountDetails = asyncHandler(async (req, res) => {
+  if (!req.user)
+    throw new ApiError("Unauthorized request , user not found", 404);
+  const { email, userName, fullName } = req.body;
+
+  if (!(userName || currentUserName || fullName))
+    throw new ApiError("Provide email, username, fullname to change", 400);
+  const updatedFields = {};
+
+  if (email) updatedFields.email = email;
+  if (userName) updatedFields.userName = userName;
+  if (fullName) updatedFields.fullName = fullName;
+
+  const fetchedUser = await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: updatedFields,
+    },
+    { new: true },
+  ).select("-password");
+
+  if (!fetchedUser) throw new ApiError("No user found with this id", 404);
+
+  return res
+    .status(200)
+    .json(new ApiResponse("Account details udpated", 200, {}));
+});
+
+const updateUserAvatar = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError("Not Authorized", 400);
+
+  if (!req.file) throw new ApiError("No avatar file found", 400);
+
+  const localPath = req.file?.path;
+
+  if (!localPath)
+    throw new ApiError("Could not store file on local system", 500);
+
+  const user = await User.findById(req.user?._id).select(
+    "-password -refreshToken",
+  );
+
+  if (!user) throw new ApiError("Invalid access no user found", 404);
+
+  const avatar = await uploadOnCloudinary(localPath);
+
+  const newAvatar = {
+    url: avatar.secure_url,
+    publicId: avatar.public_id,
+  };
+
+  const deletRes = await deleteFromCloudinary(user.avatar?.publicId); //deleting previous image(avatar) from cloudinary
+
+  user.avatar = newAvatar;
+
+  await user.save({
+    validateBeforeSave: false,
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, "Avatar successully updated", {
+      avatar: newAvatar.url,
+    }),
+  );
+});
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  changeCurrentPassword,
+  updateUserAvatar,
+};
