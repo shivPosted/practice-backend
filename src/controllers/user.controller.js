@@ -341,7 +341,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     publicId: avatar.public_id,
   };
 
-  const deletRes = await deleteFromCloudinary(user.avatar?.publicId); //deleting previous image(avatar) from cloudinary
+  await deleteFromCloudinary(user.avatar?.publicId); //deleting previous image(avatar) from cloudinary
 
   user.avatar = newAvatar;
 
@@ -356,6 +356,44 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
   );
 });
 
+const updateCoverImage = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError("Not Authorized", 400);
+
+  if (!req.file) throw new ApiError("No avatar file found", 400);
+
+  const localPath = req.file?.path;
+
+  if (!localPath)
+    throw new ApiError("Could not store file on local system", 500);
+
+  const user = await User.findById(req.user?._id).select(
+    "-password -refreshToken",
+  );
+
+  if (!user) throw new ApiError("Invalid access no user found", 404);
+
+  const cover = await uploadOnCloudinary(localPath);
+
+  const newCover = {
+    url: cover.secure_url,
+    publicId: cover.public_id,
+  };
+
+  await deleteFromCloudinary(user.coverImage?.publicId); //deleting previous image(avatar) from cloudinary
+
+  user.coverImage = newAvatar;
+
+  await user.save({
+    validateBeforeSave: false,
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, "Avatar successully updated", {
+      coverImage: newCover.url,
+    }),
+  );
+});
+
 export {
   registerUser,
   loginUser,
@@ -363,4 +401,5 @@ export {
   refreshAccessToken,
   changeCurrentPassword,
   updateUserAvatar,
+  updateCoverImage,
 };

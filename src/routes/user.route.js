@@ -41,5 +41,8 @@ userRouter.route("/refreshAccessToken").post(refreshAccessToken);
 userRouter
   .route("/avatar")
   .patch(verifyJWT, upload.single("avatar"), updateUserAvatar);
+userRouter
+  .route("cover-image")
+  .path(verifyJWT, upload.single("coverImage"), updateCoverImage);
 
 export default userRouter;
