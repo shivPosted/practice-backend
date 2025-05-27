@@ -285,17 +285,23 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
 const getCurrentUser = asyncHandler(async (req, res) => {
   if (!req.user) throw new ApiError("Invalid request, no user found", 404);
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, "User found Successfully", req.user));
+  const user = req.user.toObject(); //NOTE:toObject is a mongoose related method and not native js
+
+  return res.status(200).json(
+    new ApiResponse(200, "User found Successfully", {
+      ...user,
+      avatar: req.user.avatar.url,
+      coverImage: req.user.coverImage.url || "",
+    }),
+  );
 });
 
 const updateAccountDetails = asyncHandler(async (req, res) => {
   if (!req.user)
     throw new ApiError("Unauthorized request , user not found", 404);
-  const { email, userName, fullName } = req.body;
+  const { email = "", userName = "", fullName = "" } = req.body;
 
-  if (!(userName || currentUserName || fullName))
+  if (!(email || userName || fullName))
     throw new ApiError("Provide email, username, fullname to change", 400);
   const updatedFields = {};
 
@@ -315,7 +321,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse("Account details udpated", 200, {}));
+    .json(new ApiResponse(200, "Account details udpated", {}));
 });
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
@@ -357,9 +363,10 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
 });
 
 const updateCoverImage = asyncHandler(async (req, res) => {
+  console.log("inside updating cover image");
   if (!req.user) throw new ApiError("Not Authorized", 400);
 
-  if (!req.file) throw new ApiError("No avatar file found", 400);
+  if (!req.file) throw new ApiError("No cover image found", 400);
 
   const localPath = req.file?.path;
 
@@ -381,7 +388,7 @@ const updateCoverImage = asyncHandler(async (req, res) => {
 
   await deleteFromCloudinary(user.coverImage?.publicId); //deleting previous image(avatar) from cloudinary
 
-  user.coverImage = newAvatar;
+  user.coverImage = newCover;
 
   await user.save({
     validateBeforeSave: false,
@@ -399,6 +406,8 @@ export {
   loginUser,
   logoutUser,
   refreshAccessToken,
+  updateAccountDetails,
+  getCurrentUser,
   changeCurrentPassword,
   updateUserAvatar,
   updateCoverImage,
