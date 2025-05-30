@@ -401,6 +401,77 @@ const updateCoverImage = asyncHandler(async (req, res) => {
   );
 });
 
+const getChannelProfile = asyncHandler(async (req, res) => {
+  const { userName } = req.params;
+
+  if (!userName) throw new ApiError("No user found", 400);
+
+  const profile = User.aggregate([
+    //NOTE: mongoose doesn't interfare with aggregate it will be directly handled by mogoDB
+    //returns an array
+    {
+      $match: {
+        userName: userName?.toLowerCase(), //will give the document that will match to userName recieved fro url
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers", //will resul in array
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedTo", //will resul in array
+      },
+    },
+    {
+      $addFields: {
+        subscriberCount: {
+          $size: "$subscibers",
+        },
+        subsribedToCount: {
+          $size: "$subscribedTo",
+        },
+        isSubscribed: {
+          $condn: {
+            $if: {
+              $in: [req.user?._id, "$subscribers subscriber"],
+            },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        fullName: 1,
+        userName: 1,
+        avatar: 1,
+        coverImage: 1,
+        subscriberCount: 1,
+        subscribedToCount: 1,
+        isSubscribed: 1,
+        email: 1,
+      },
+    },
+  ]);
+
+  if (!profile) throw new ApiError("Can not found user info", 500);
+
+  return res.status(200).json(
+    new ApiResponse(200, "User profile successully fetched", {
+      ...profile?.[0],
+    }),
+  );
+});
+
 export {
   registerUser,
   loginUser,
@@ -411,4 +482,5 @@ export {
   changeCurrentPassword,
   updateUserAvatar,
   updateCoverImage,
+  getChannelProfile,
 };
